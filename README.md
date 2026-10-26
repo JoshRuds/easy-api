@@ -1,17 +1,17 @@
-# simple-api
+# easy-api
 
-A crate that provides a simple api interface without the boilerplate.
+A crate that provides a easy api interface without the boilerplate.
 
 ## Installation
  
 ```bash
-cargo add simple-api
+cargo add easy-api
 ```
 
 # Usage
 
 ```rust
-use simple_api;
+use easy_api;
 
 fn hello() {
     println!("Hello!");
@@ -19,15 +19,15 @@ fn hello() {
 
 fn main() {
     // Adds a new api which calls hello() upon /hello being tapped.
-    simple_api::add_tap_api("/hello", hello); 
+    easy_api::add_tap_api("/hello", hello); 
     
     // Starts the server with the configured settings on 127.0.0.1:3000
     // Use start_on(address: string) to use a different host and/or port 
-    simple_api::start(); 
+    easy_api::start(); 
 
     // Keeps server alive. Feel free to use other things in this loop.
     loop {
-        simple_api::park(); 
+        easy_api::park(); 
     }
 }
 ```
@@ -44,8 +44,8 @@ add_tap_api("/hello", || {
 
 ## Responses
 
-simple-api always replies with code 200 OK when a callback function was found, else 404 NOT FOUND.
+easy-api always replies with code 200 OK when a callback function was found, else 404 NOT FOUND.
 
 ## Notes
 
-simple-api is currently **under development**. Things may not work or may work incorrectly.
+easy-api is currently **under development**. Things may not work or may work incorrectly.
