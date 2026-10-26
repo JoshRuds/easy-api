@@ -6,7 +6,7 @@ description = "A lightweight Rust HTTP API server with callback-based endpoints"
 license = "Apache-2.0"
 repository = "https://github.com/JoshRuds/simple-api"
 readme = "README.md"
-keywords = ["api", "http", "server", "hyper", "tokio", "simple"]
+keywords = ["api", "http", "server", "hyper", "simple"]
 categories = ["web-programming::http-server"]
 
 [dependencies]
