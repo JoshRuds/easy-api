@@ -21,9 +21,9 @@ fn main() {
     // Adds a new api which calls hello() upon /hello being tapped.
     simple_api::add_tap_api("/hello", hello); 
     
-    // Starts the server with the configured settings.
-    // Takes in the address on where to host from, default 127.0.0.1:3000
-    simple_api::start("127.0.0.1:3000"); 
+    // Starts the server with the configured settings on 127.0.0.1:3000
+    // Use start_on(address: string) to use a different host and/or port 
+    simple_api::start(); 
 
     // Keeps server alive. Feel free to use other things in this loop.
     loop {
@@ -48,4 +48,4 @@ simple-api always replies with code 200 OK when a callback function was found, e
 
 ## Notes
 
-simple-api is currently under development. Things may not work or may work incorrectly.
+simple-api is currently **under development**. Things may not work or may work incorrectly.

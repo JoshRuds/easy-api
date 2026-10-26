@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{Arc, LazyLock, RwLock};
-use std::option::Option;
 
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
@@ -61,8 +60,13 @@ pub fn add_tap_api(uri: &str, func: impl Fn() + Send + Sync + 'static, ) {
         .insert(uri.to_string(), Arc::new(func));
 }
 
-pub fn start(address: Option<&str>) {
-    let addr: String = address.unwrap_or("127.0.0.1:3000").to_string();
+pub fn start() {
+    start_on("127.0.0.1:3000");
+}
+
+pub fn start_on(address: &str) {
+    let addr = address.to_string();
+
     std::thread::spawn(move || {
         let runtime = tokio::runtime::Runtime::new().unwrap();
 
