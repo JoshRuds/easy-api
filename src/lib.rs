@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{Arc, LazyLock, RwLock};
+use std::option::Option;
 
 use http_body_util::Full;
 use hyper::body::{Bytes, Incoming};
@@ -35,8 +36,8 @@ async fn handler(req: Request<Incoming>, ) -> Result<Response<Full<Bytes>>, Infa
     }
 }
 
-async fn init() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let listener = TcpListener::bind("127.0.0.1:3000").await?;
+async fn init(addr: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let listener = TcpListener::bind(addr).await?;
 
     loop {
         let (stream, _) = listener.accept().await?;
@@ -60,12 +61,13 @@ pub fn add_tap_api(uri: &str, func: impl Fn() + Send + Sync + 'static, ) {
         .insert(uri.to_string(), Arc::new(func));
 }
 
-pub fn start() {
-    std::thread::spawn(|| {
+pub fn start(address: Option<&str>) {
+    let addr: String = address.unwrap_or("127.0.0.1:3000").to_string();
+    std::thread::spawn(move || {
         let runtime = tokio::runtime::Runtime::new().unwrap();
 
         runtime.block_on(async {
-            if let Err(err) = init().await {
+            if let Err(err) = init(&addr).await {
                 eprintln!("Server error: {err}");
             }
         });

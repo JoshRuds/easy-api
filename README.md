@@ -22,7 +22,8 @@ fn main() {
     simple_api::add_tap_api("/hello", hello); 
     
     // Starts the server with the configured settings.
-    simple_api::start(); 
+    // Takes in the address on where to host from, default 127.0.0.1:3000
+    simple_api::start("127.0.0.1:3000"); 
 
     // Keeps server alive. Feel free to use other things in this loop.
     loop {
