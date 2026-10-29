@@ -7,6 +7,7 @@ use std::sync::{
 #[test]
 fn test_apis() {
     let called = Arc::new(AtomicI8::new(0));
+    let error_called = Arc::clone(&called);
     let tap_called = Arc::clone(&called);
     let grab_called = Arc::clone(&called);
     let tap_give_called = Arc::clone(&called);
@@ -15,24 +16,30 @@ fn test_apis() {
     add_tap_api("/test", move || {
         println!("Callback called!");
         tap_called.fetch_add(1, Ordering::SeqCst);
+        Ok(())
     });
 
     add_grab_api("/give-me-pizza", move |hopefully_pizza| {
         println!("Callback called!");
         assert_eq!(hopefully_pizza, "pizza");
         grab_called.fetch_add(1, Ordering::SeqCst);
+        Ok(())
     });
 
     add_tap_give_api("/hello", move || {
         tap_give_called.fetch_add(1, Ordering::SeqCst);
-        "Hello, world!".to_string()
+        Ok("Hello, world!".to_string())
     });
 
     add_grab_give_api("/greet", move |name| {
         grab_give_called.fetch_add(1, Ordering::SeqCst);
-        format!("Hello, {name}!")
+        Ok(format!("Hello, {name}!"))
     });
 
+    add_tap_api("/gives-error", move || {
+        error_called.fetch_add(1, Ordering::SeqCst);
+        Err(500)
+    });
 
     let address = start_on_any();
     let base_url = format!("http://{address}");
@@ -58,6 +65,10 @@ fn test_apis() {
 
     assert_eq!(response.status(), 200);
 
+    let response = reqwest::blocking::get(format!("{base_url}/gives-error")).unwrap();
+
+    assert_eq!(response.status(), 500);
+
     let response = reqwest::blocking::Client::new()
         .post(format!("{base_url}/give-me-pizza"))
         .body("pizza")
@@ -66,8 +77,7 @@ fn test_apis() {
 
     assert_eq!(response.status(), 200);
 
-    let response =
-        reqwest::blocking::get(format!("{base_url}/hello")).unwrap();
+    let response = reqwest::blocking::get(format!("{base_url}/hello")).unwrap();
 
     assert_eq!(response.status(), 200);
     assert_eq!(response.text().unwrap(), "Hello, world!");
@@ -81,5 +91,5 @@ fn test_apis() {
     assert_eq!(response.status(), 200);
     assert_eq!(response.text().unwrap(), "Hello, Alice!");
 
-    assert_eq!(called.load(Ordering::SeqCst), 4);
+    assert_eq!(called.load(Ordering::SeqCst), 5);
 }

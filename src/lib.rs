@@ -12,11 +12,12 @@ use hyper_util::rt::TokioIo;
 use tokio::net::TcpListener;
 
 
-
-type CallbackFuncNoInput = Arc<dyn Fn() + Send + Sync>;
-type CallbackFuncTakesInput = Arc<dyn Fn(String) + Send + Sync>;
-type CallbackFuncNoInputGivesOutput = Arc<dyn Fn() -> String + Send + Sync>;
-type CallbackFuncTakesInputGivesOutput = Arc<dyn Fn(String) -> String + Send + Sync>;
+pub type EasyResult = Result<(), u16>;
+pub type EasyResultOutput = Result<String, u16>;
+type CallbackFuncNoInput = Arc<dyn Fn() -> EasyResult + Send + Sync>;
+type CallbackFuncTakesInput = Arc<dyn Fn(String) -> EasyResult + Send + Sync>;
+type CallbackFuncNoInputGivesOutput = Arc<dyn Fn() -> EasyResultOutput + Send + Sync>;
+type CallbackFuncTakesInputGivesOutput = Arc<dyn Fn(String) -> EasyResultOutput + Send + Sync>;
 
 #[derive(Clone)]
 enum Callback {
@@ -57,7 +58,14 @@ async fn handler(req: Request<Incoming>, ) -> Result<Response<Full<Bytes>>, Infa
             };
 
             let input = String::from_utf8_lossy(&body).into_owned();
-            func(input);
+            let output = func(input);
+            if let Err(ec) = output {
+                let sc = StatusCode::from_u16(ec).expect("Invalid Status Code");
+                return Ok(Response::builder()
+                    .status(sc)
+                    .body(Full::new(Bytes::from(sc.canonical_reason().unwrap_or("Unkown Status"))))
+                    .unwrap());
+            }
 
             return Ok(Response::new(Full::new(Bytes::from("OK"))));
         }
@@ -70,7 +78,14 @@ async fn handler(req: Request<Incoming>, ) -> Result<Response<Full<Bytes>>, Infa
                     .unwrap());
             }
 
-            func();
+            let output = func();
+            if let Err(ec) = output {
+                let sc = StatusCode::from_u16(ec).expect("Invalid Status Code");
+                return Ok(Response::builder()
+                    .status(sc)
+                    .body(Full::new(Bytes::from(sc.canonical_reason().unwrap_or("Unkown Status"))))
+                    .unwrap());
+            }
 
             return Ok(Response::new(Full::new(Bytes::from("OK"))));
         }
@@ -84,8 +99,15 @@ async fn handler(req: Request<Incoming>, ) -> Result<Response<Full<Bytes>>, Infa
             }
 
             let output = func();
+            if let Err(ec) = output {
+                let sc = StatusCode::from_u16(ec).expect("Invalid Status Code");
+                return Ok(Response::builder()
+                    .status(sc)
+                    .body(Full::new(Bytes::from(sc.canonical_reason().unwrap_or("Unkown Status"))))
+                    .unwrap());
+            }
 
-            return Ok(Response::new(Full::new(Bytes::from(output))));
+            return Ok(Response::new(Full::new(Bytes::from(output.unwrap()))));
         }
 
         Some(Callback::TakesInputGivesOutput(func)) => {
@@ -113,7 +135,15 @@ async fn handler(req: Request<Incoming>, ) -> Result<Response<Full<Bytes>>, Infa
             let input = String::from_utf8_lossy(&body).into_owned();
             let output = func(input);
 
-            return Ok(Response::new(Full::new(Bytes::from(output))));
+            if let Err(ec) = output {
+                let sc = StatusCode::from_u16(ec).expect("Invalid Status Code");
+                return Ok(Response::builder()
+                    .status(sc)
+                    .body(Full::new(Bytes::from(sc.canonical_reason().unwrap_or("Unkown Status"))))
+                    .unwrap());
+            }
+
+            return Ok(Response::new(Full::new(Bytes::from(output.unwrap()))));
         }
 
         None => {
@@ -141,28 +171,28 @@ async fn init(listener: TcpListener) -> Result<(), Box<dyn std::error::Error + S
     }
 }
 
-pub fn add_tap_api(uri: &str, func: impl Fn() + Send + Sync + 'static, ) {
+pub fn add_tap_api(uri: &str, func: impl Fn() -> EasyResult + Send + Sync + 'static, ) {
     API_CALLBACKS
         .write()
         .unwrap()
         .insert(uri.to_string(), Callback::NoInput(Arc::new(func)));
 }
 
-pub fn add_grab_api(uri: &str, func: impl Fn(String) + Send + Sync + 'static, ) {
+pub fn add_grab_api(uri: &str, func: impl Fn(String) -> EasyResult + Send + Sync + 'static, ) {
     API_CALLBACKS
         .write()
         .unwrap()
         .insert(uri.to_string(), Callback::TakesInput(Arc::new(func)));
 }
 
-pub fn add_tap_give_api(uri: &str, func: impl Fn() -> String + Send + Sync + 'static, ) {
+pub fn add_tap_give_api(uri: &str, func: impl Fn() -> EasyResultOutput + Send + Sync + 'static, ) {
     API_CALLBACKS
         .write()
         .unwrap()
         .insert(uri.to_string(), Callback::NoInputGivesOutput(Arc::new(func)));
 }
 
-pub fn add_grab_give_api(uri: &str, func: impl Fn(String) -> String + Send + Sync + 'static, ) {
+pub fn add_grab_give_api(uri: &str, func: impl Fn(String) -> EasyResultOutput + Send + Sync + 'static, ) {
     API_CALLBACKS
         .write()
         .unwrap()
@@ -229,6 +259,7 @@ mod tests {
     fn test_callback_registration() {
         add_tap_api("/test", || {
             println!("Callback invoked");
+            Ok(())
         });
 
         let callbacks = API_CALLBACKS.read().unwrap();

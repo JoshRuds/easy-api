@@ -1,9 +1,9 @@
 # easy-api
 
-A crate that provides a easy api interface without the boilerplate.
+A crate that provides an easy API interface without the boilerplate.
 
 ## Installation
- 
+
 ```bash
 cargo add easy-api
 ```
@@ -13,68 +13,110 @@ cargo add easy-api
 ```rust
 use easy_api;
 
-fn hello() {
+fn hello() -> easy_api::EasyResult {
     println!("Hello!");
+    Ok(())
 }
 
-fn this_is_a_grab(input: String) {
-    println!("I got a {}", input);
+fn receive(input: String) -> easy_api::EasyResult {
+    println!("I got: {input}");
+    Ok(())
 }
 
-fn greet(input: String) -> String {
-    format!("Hello, {input}!")
+fn greet(input: String) -> easy_api::EasyResultOutput {
+    Ok(format!("Hello, {input}!"))
 }
 
-fn whats_my_name() -> String {
-    "My name is Bob!".to_string()
+fn whats_my_name() -> easy_api::EasyResultOutput {
+    Ok("My name is Bob!".to_string())
 }
 
 fn main() {
-    // Adds a new api which calls hello() upon /hello being tapped.
-    easy_api::add_tap_api("/hello", hello); 
+    // Calls hello() when /hello is requested.
+    easy_api::add_tap_api("/hello", hello);
 
-    // Adds a new api which calls this_is_a_grab() upon /grab being given data.
-    // Note: Callback Function must take in one string.
-    easy_api::add_grab_api("/grab", this_is_a_grab);
-    
-    // Adds a new api which returns the result of whats_my_name() upon /name being tapped.
-    easy_api::add_tap_give_api("/name", hello); 
+    // Calls receive() with the request body.
+    easy_api::add_grab_api("/grab", receive);
 
-    // Adds a new api which returns the result of greet() upon /greet being given data.
-    // Note: Callback Function must take in one string.
-    easy_api::add_grab_api("/greet", this_is_a_grab);
-    
-    // Starts the server with the configured settings on 127.0.0.1:3000
-    // Use start_on(address: string) to use a different host and/or port.
+    // Returns the result of whats_my_name() from /name.
+    easy_api::add_tap_give_api("/name", whats_my_name);
+
+    // Returns the result of greet() from /greet.
+    easy_api::add_grab_give_api("/greet", greet);
+
+    // Starts the server on 127.0.0.1:3000.
+    // Use start_on(address) for a custom address.
     // Use start_on_any() to use any available port.
-    easy_api::start(); 
+    easy_api::start();
 
-    // Keeps the server alive. Feel free to use other things in this loop.
+    // Keeps the server alive.
     loop {
-        easy_api::park(); 
+        easy_api::park();
     }
 }
 ```
 
-## Registering closures
+## Registering Closures
 
-You can also register closures instead of named functions:
+You can register closures instead of named functions:
 
 ```rust
-add_tap_api("/hello", || {
+easy_api::add_tap_api("/hello", || {
     println!("Hello!");
+    Ok(())
+});
+
+easy_api::add_grab_give_api("/greet", |input| {
+    Ok(format!("Hello, {input}!"))
 });
 ```
 
 ## Requests
 
-- For a *Tap Api*, all body and headers will be ignored. The request must be a **GET** request.
-- For a *Grab Api*, all headers will be ignored, and the body must be a **plain text** value, interpreted as a string. The request must be a **POST** request.
-- For the *Grab Give Api* and the *Tap Give Api*, the above is true, and the result will be returned as plain text in the responses' bodies.
+- **Tap API:** Ignores the request body and headers. Requires a `GET` request.
+- **Grab API:** Receives the request body as a `String`. Headers are ignored. Requires a `POST` request.
+- **Tap Give API:** Works like a Tap API but returns a `String` in the response body.
+- **Grab Give API:** Works like a Grab API but returns a `String` in the response body.
+
+## Error Handling
+
+All callback functions must return a `Result`.
+
+- `EasyResult` is used for callbacks that do not return output.
+- `EasyResultOutput` is used for callbacks that return a `String`.
+- `Ok(())` indicates success for callbacks without output.
+- `Ok("message".to_string())` returns a successful response with the specified text.
+- `Err(status_code)` indicates an error. The `u16` value specifies the HTTP status code to return.
+
+For example, you can return `Err(400)` if the request contains invalid input:
+
+```rust
+easy_api::add_grab_give_api("/greet", |input| {
+    if input.is_empty() {
+        return Err(400);
+    }
+
+    Ok(format!("Hello, {input}!"))
+});
+```
 
 ## Responses
 
-easy-api always replies with code 200 OK when a callback function was found, and 404 NOT FOUND if not. If a incorrect method was used, it will return 405 METHOD NOT ALLOWED.
+- **200 OK:** The callback succeeds.
+- **400 Bad Request:** Can be returned by a callback to indicate invalid input.
+- **404 Not Found:** No callback is registered for the requested path.
+- **405 Method Not Allowed:** The request uses the wrong HTTP method.
+- **Other status codes:** Callbacks can return an error with any valid HTTP status code.
+
+When a callback returns an error, the response body contains the standard message for that HTTP status code, such as `Bad Request` or `Internal Server Error`.
+
+Successful callbacks that return output send that output as plain text. Successful callbacks without output return `OK`.
+
+## Starting the Server
+
+- `start()` starts the server at `127.0.0.1:3000`.
+- `start_on(address)` starts the server at the specified address and returns the address it successfully bound to.
+- `start_on_any()` starts the server on an available port on `127.0.0.1` and returns the address.
 
 ## Notes
 
