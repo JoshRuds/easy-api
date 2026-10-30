@@ -226,6 +226,10 @@ println!("Server running at {address}");
 
 This is useful for tests or when you do not need to choose a specific port.
 
+### `set_verbose(true)`
+
+Use this to turn on verbose output.
+
 ### Keeping the Program Alive
 
 The server runs on a separate thread. If your main function needs to remain active, you can use `park()`:

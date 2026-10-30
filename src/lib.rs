@@ -3,8 +3,8 @@ pub mod static_files;
 
 use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::{Arc, LazyLock, RwLock};
-use std::sync::mpsc;
+use std::net::SocketAddr;
+use std::sync::{Arc, LazyLock, RwLock, mpsc, atomic::{AtomicBool, Ordering}};
 
 use http_body_util::{Full, BodyExt};
 use hyper::body::{Bytes, Incoming};
@@ -31,8 +31,19 @@ enum Callback {
 }
 
 static API_CALLBACKS: LazyLock<RwLock<HashMap<String, Callback>>> = LazyLock::new(|| RwLock::new(HashMap::new()));
+static VERBOSE: AtomicBool = AtomicBool::new(false);
 
-async fn handler(req: Request<Incoming>, ) -> Result<Response<Full<Bytes>>, Infallible> {
+macro_rules! vp {
+    ($($arg:tt)*) => {
+        if VERBOSE.load(Ordering::Relaxed) {
+            println!($($arg)*);
+        }
+    };
+}
+
+async fn handler(req: Request<Incoming>, addr: SocketAddr) -> Result<Response<Full<Bytes>>, Infallible> {
+    vp!("{}: (ip: {}) {}", req.method(), req.uri(), addr.to_string());
+
     let callback = {
         API_CALLBACKS
             .read()
@@ -165,12 +176,15 @@ async fn handler(req: Request<Incoming>, ) -> Result<Response<Full<Bytes>>, Infa
 
 async fn init(listener: TcpListener) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     loop {
-        let (stream, _) = listener.accept().await?;
+        let (stream, addr) = listener.accept().await?;
         let io = TokioIo::new(stream);
 
         tokio::spawn(async move {
             if let Err(err) = http1::Builder::new()
-                .serve_connection(io, service_fn(handler))
+                .serve_connection(
+                    io,
+                    service_fn(move |req| handler(req, addr)),
+                )
                 .await
             {
                 eprintln!("HTTP error: {err}");
@@ -259,7 +273,9 @@ pub fn park() {
     std::thread::park();
 }
 
-
+pub fn set_verbose(v: bool) {
+    VERBOSE.store(v, Ordering::Relaxed);
+}
 
 #[cfg(test)]
 mod tests {

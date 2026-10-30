@@ -1,6 +1,6 @@
 [package]
 name = "easy-api"
-version = "0.1.6-rc"
+version = "0.1.7-rc"
 edition = "2024"
 description = "A lightweight Rust HTTP API server with callback-based endpoints"
 license = "Apache-2.0"
