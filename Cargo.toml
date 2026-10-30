@@ -9,7 +9,12 @@ readme = "README.md"
 keywords = ["api", "http", "server", "hyper", "easy"]
 categories = ["web-programming::http-server"]
 
+[features]
+default = []
+static = ["dep:mime_guess"]
+
 [dependencies]
+mime_guess = { version = "2", optional = true }
 http-body-util = "0.1.5"
 hyper = { version = "1.12.0", features = ["full"] }
 hyper-util = { version = "0.1.21", features = ["full"] }

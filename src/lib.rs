@@ -1,3 +1,6 @@
+#[cfg(feature = "static")]
+pub mod static_files;
+
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::{Arc, LazyLock, RwLock};
@@ -147,6 +150,11 @@ async fn handler(req: Request<Incoming>, ) -> Result<Response<Full<Bytes>>, Infa
         }
 
         None => {
+            #[cfg(feature = "static")]
+            if let Some(response) = static_files::serve_static_file(&req).await {
+                return Ok(response);
+            }
+
             return Ok(Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body(Full::new(Bytes::from("Not found")))
@@ -250,6 +258,8 @@ pub fn start_on_any() -> String {
 pub fn park() {
     std::thread::park();
 }
+
+
 
 #[cfg(test)]
 mod tests {
