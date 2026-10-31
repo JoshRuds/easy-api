@@ -42,7 +42,7 @@ macro_rules! vp {
 }
 
 async fn handler(req: Request<Incoming>, addr: SocketAddr) -> Result<Response<Full<Bytes>>, Infallible> {
-    vp!("{}: (ip: {}) {}", req.method(), req.uri(), addr.to_string());
+    vp!("{}: (ip: {}) {}", req.method(), req.uri(), addr.ip().to_string());
 
     let callback = {
         API_CALLBACKS
