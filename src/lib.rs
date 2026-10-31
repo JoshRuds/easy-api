@@ -260,9 +260,12 @@ pub fn start_on(address: &str) -> String {
         });
     });
 
-    rx.recv()
+    let ip = rx.recv()
         .expect("Server thread exited before reporting its address")
-        .unwrap_or_else(|err| panic!("Failed to start server: {err}"))
+        .unwrap_or_else(|err| panic!("Failed to start server: {err}"));
+    
+    vp!("Started easy-api server on {} at {}", ip, chrono::Utc::now().format("%H:%M:%S-%d/%m/%y").to_string());
+    ip
 }
 
 pub fn start_on_any() -> String {
