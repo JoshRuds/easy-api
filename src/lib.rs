@@ -41,6 +41,12 @@ macro_rules! vp {
     };
 }
 
+fn get_local_ip() -> std::io::Result<std::net::IpAddr> {
+    let socket = std::net::UdpSocket::bind("0.0.0.0:0")?;
+    socket.connect("8.8.8.8:80")?;
+    Ok(socket.local_addr()?.ip())
+}
+
 async fn handler(req: Request<Incoming>, addr: SocketAddr) -> Result<Response<Full<Bytes>>, Infallible> {
     vp!("{}: (ip: {}) {}", req.method(), req.uri(), addr.ip().to_string());
 
@@ -241,12 +247,21 @@ pub fn start_on(address: &str) -> String {
                 }
             };
 
-            let actual_addr = match listener.local_addr() {
+            let addr = match listener.local_addr() {
                 Ok(addr) => addr.to_string(),
                 Err(err) => {
                     let _ = tx.send(Err(err.to_string()));
                     return;
                 }
+            };
+
+            let actual_addr = if addr.starts_with("0.0.0.0") {
+                match get_local_ip() {
+                    Ok(ip) => format!("{}:{}", ip, listener.local_addr().unwrap().port()),
+                    Err(_) => listener.local_addr().unwrap().to_string(),
+                }
+            } else {
+                listener.local_addr().unwrap().to_string()
             };
 
             // Tell the caller which address was actually bound.
