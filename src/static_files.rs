@@ -37,7 +37,7 @@ pub async fn serve_static_file(req: &Request<Incoming>,) -> Option<Response<Full
 
     let relative_path = std::path::Path::new(relative);
 
-    // Prevent requests from escaping the configured directory.
+    // Prevent path traversal.
     if relative_path.components().any(|component| {
         !matches!(component, std::path::Component::Normal(_))
     }) {
@@ -50,18 +50,74 @@ pub async fn serve_static_file(req: &Request<Incoming>,) -> Option<Response<Full
     }
 
     let mut file_path = config.directory.join(relative_path);
+    let mut status = StatusCode::OK;
 
     if relative.is_empty() || relative.ends_with('/') {
         file_path.push("index.html");
+    } else {
+        // Check if the requested path is a file.
+        let is_file = tokio::fs::metadata(&file_path)
+            .await
+            .map(|m| m.is_file())
+            .unwrap_or(false);
+
+        if !is_file {
+            // Try directory/index.html.
+            let index_path = file_path.join("index.html");
+
+            let has_index = tokio::fs::metadata(&index_path)
+                .await
+                .map(|m| m.is_file())
+                .unwrap_or(false);
+
+            if has_index {
+                file_path = index_path;
+            } else {
+                // Not found: serve custom 404 page.
+                file_path = std::path::PathBuf::from(
+                    "easy-api/src/errors/404.html"
+                );
+
+                status = StatusCode::NOT_FOUND;
+            }
+        }
     }
 
+    // Read the requested file.
     let file = match tokio::fs::read(&file_path).await {
         Ok(file) => file,
         Err(_) => {
+            // If the requested file fails, try the custom 404.
+            if status == StatusCode::NOT_FOUND {
+                return Some(
+                    Response::builder()
+                        .status(StatusCode::NOT_FOUND)
+                        .body(Full::new(Bytes::from("404 Not Found")))
+                        .unwrap(),
+                );
+            }
+
+            let error_page = match tokio::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/src/errors/404.html")).await {
+                Ok(file) => file,
+                Err(_) => {
+                    return Some(
+                        Response::builder()
+                            .status(StatusCode::NOT_FOUND)
+                            .body(Full::new(Bytes::from("404 Not Found")))
+                            .unwrap(),
+                    );
+                }
+            };
+
             return Some(
                 Response::builder()
                     .status(StatusCode::NOT_FOUND)
-                    .body(Full::new(Bytes::from("Not Found")))
+                    .header("Content-Type", "text/html; charset=utf-8")
+                    .body(Full::new(if req.method() == Method::HEAD {
+                        Bytes::new()
+                    } else {
+                        Bytes::from(error_page)
+                    }))
                     .unwrap(),
             );
         }
@@ -79,7 +135,7 @@ pub async fn serve_static_file(req: &Request<Incoming>,) -> Option<Response<Full
 
     Some(
         Response::builder()
-            .status(StatusCode::OK)
+            .status(status)
             .header("Content-Type", content_type)
             .body(Full::new(body))
             .unwrap(),

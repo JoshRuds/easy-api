@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+    <body>
+        <h1>404 Not Found</h1>
+        <h3>
+            This page could not be found.
+            <a id="back" href="/">Go home</a>
+        </h3>
+        <script>
+            const back = document.getElementById("back");
+
+            if (document.referrer && new URL(document.referrer).origin === location.origin) {
+                back.textContent = "Go back";
+                back.onclick = () => {
+                    history.back();
+                    return false;
+                };
+            }
+        </script>   
+    </body>
+</html>

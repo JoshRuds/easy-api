@@ -125,7 +125,7 @@ dependencies = [
 
 [[package]]
 name = "easy-api"
-version = "0.1.7-rc"
+version = "0.1.8-rc"
 dependencies = [
  "http-body-util",
  "hyper",
